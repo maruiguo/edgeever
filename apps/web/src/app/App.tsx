@@ -1569,13 +1569,11 @@ const MobileHomeHeader = ({
   isOnline,
   isSyncingQueuedChanges,
   user,
-  onOpenListActions,
   onSyncQueuedChanges,
 }: {
   isOnline: boolean;
   isSyncingQueuedChanges: boolean;
   user: AuthUser | null;
-  onOpenListActions: () => void;
   onSyncQueuedChanges: () => void;
 }) => {
   const displayName = user?.displayName?.trim() || user?.username?.trim() || "EdgeEver";
@@ -1609,15 +1607,6 @@ const MobileHomeHeader = ({
           ) : (
             <CloudOff className="h-5 w-5" />
           )}
-        </button>
-        <button
-          className="flex h-9 w-9 items-center justify-center rounded-full text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-700"
-          type="button"
-          title="列表选项"
-          aria-label="列表选项"
-          onClick={onOpenListActions}
-        >
-          <MoreHorizontal className="h-5 w-5" />
         </button>
       </div>
     </div>
@@ -1694,9 +1683,10 @@ const MobileQuickActions = ({
         {actions.map((action) => (
           <MobileQuickActionButton
             key={action.label}
-            disabled={locked || action.disabled}
+            disabled={action.disabled}
             icon={action.icon}
             label={action.label}
+            locked={locked}
             onClick={action.onClick}
           />
         ))}
@@ -1713,18 +1703,32 @@ const MobileQuickActionButton = ({
   disabled = false,
   icon,
   label,
+  locked = false,
   onClick,
 }: {
   disabled?: boolean;
   icon: ReactNode;
   label: string;
+  locked?: boolean;
   onClick: () => void;
 }) => (
   <button
-    className="flex h-[76px] w-[92px] shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-md border border-slate-100 bg-white text-xs font-medium text-slate-700 shadow-[0_8px_20px_rgba(15,23,42,0.05)] transition hover:bg-slate-50 disabled:opacity-40"
+    className={cn(
+      "flex h-[76px] w-[92px] shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-md border border-slate-100 bg-white text-xs font-medium text-slate-700 shadow-[0_8px_20px_rgba(15,23,42,0.05)] transition disabled:opacity-40",
+      locked ? "cursor-default" : "hover:bg-slate-50"
+    )}
     type="button"
     disabled={disabled}
-    onClick={onClick}
+    aria-disabled={locked || disabled}
+    tabIndex={locked ? -1 : undefined}
+    onClick={(event) => {
+      if (locked) {
+        event.preventDefault();
+        return;
+      }
+
+      onClick();
+    }}
   >
     <span className="text-slate-700">{icon}</span>
     <span className="max-w-full truncate px-1">{label}</span>
@@ -2102,12 +2106,14 @@ const MobileSelectionActionButton = ({
 const MobileMoveSheet = ({
   isMoving,
   notebooks,
+  selectedCount,
   selectedNotebookId,
   onClose,
   onMove,
 }: {
   isMoving: boolean;
   notebooks: Notebook[];
+  selectedCount: number;
   selectedNotebookId: string;
   onClose: () => void;
   onMove: (notebookId: string) => void;
@@ -2133,7 +2139,10 @@ const MobileMoveSheet = ({
       >
         <MobileSheetGrabber />
         <header className="flex h-12 items-center justify-between border-b border-slate-200 px-4">
-          <div className="text-sm font-semibold text-slate-950">移动到笔记本</div>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold text-slate-950">移动到笔记本</div>
+            <div className="truncate text-xs text-slate-500">已选择 {selectedCount} 条</div>
+          </div>
           <Button size="icon" variant="ghost" title="关闭" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
@@ -2248,6 +2257,7 @@ const MobileNotebookSelectSheet = ({
 const MobileSelectionMoreSheet = ({
   canMerge,
   canToggleVisibleSelection,
+  selectedCount,
   selectionToggleLabel,
   onClearSelection,
   onClose,
@@ -2256,6 +2266,7 @@ const MobileSelectionMoreSheet = ({
 }: {
   canMerge: boolean;
   canToggleVisibleSelection: boolean;
+  selectedCount: number;
   selectionToggleLabel: string;
   onClearSelection: () => void;
   onClose: () => void;
@@ -2264,10 +2275,19 @@ const MobileSelectionMoreSheet = ({
 }) => (
   <div className="fixed inset-0 z-50 bg-slate-950/25 px-3 pb-[calc(5.25rem+env(safe-area-inset-bottom))] lg:hidden" onClick={onClose}>
     <section
-      className="absolute inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] overflow-hidden rounded-md border border-slate-200 bg-white shadow-panel"
+      className="absolute inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-h-[calc(100dvh_-_6.75rem_-_env(safe-area-inset-bottom))] overflow-hidden rounded-md border border-slate-200 bg-white shadow-panel"
       onClick={(event) => event.stopPropagation()}
     >
       <MobileSheetGrabber />
+      <header className="flex h-12 items-center justify-between border-b border-slate-200 px-4">
+        <div className="min-w-0">
+          <div className="truncate text-sm font-semibold text-slate-950">批量操作</div>
+          <div className="truncate text-xs text-slate-500">已选择 {selectedCount} 条</div>
+        </div>
+        <Button size="icon" variant="ghost" title="关闭" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </Button>
+      </header>
       <button
         className="flex h-12 w-full items-center gap-3 border-b border-slate-100 px-4 text-left text-sm font-medium text-slate-800 transition hover:bg-slate-50 disabled:opacity-40"
         type="button"
@@ -2763,39 +2783,28 @@ const MemoListPane = ({
     <div className="relative flex h-full min-h-0 flex-col outline-none" tabIndex={0} onKeyDown={handleListKeyDown}>
       <header className="border-b border-emerald-100 bg-white px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] lg:py-3">
         {selectionMode ? (
-          <div className="mb-3 flex h-10 items-center justify-between gap-3 lg:hidden">
-            <div className="flex min-w-0 items-center gap-3">
-              <button
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-                type="button"
-                title="取消选择"
-                aria-label="取消选择"
-                onClick={onClearSelection}
-              >
-                <X className="h-5 w-5" />
-              </button>
-              <div className="min-w-0 truncate text-lg font-semibold text-slate-900">已选择 {selectedMemoIds.size} 条</div>
-            </div>
+          <div className="mb-3 flex h-10 min-w-0 items-center gap-3 lg:hidden">
             <button
-              className="shrink-0 text-sm font-semibold text-emerald-700 disabled:text-slate-300"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
               type="button"
-              disabled={visibleMemoIds.length === 0}
-              onClick={allVisibleMemosSelected ? handleClearVisibleMemos : handleSelectAllVisibleMemos}
+              title="取消选择"
+              aria-label="取消选择"
+              onClick={onClearSelection}
             >
-              {allVisibleMemosSelected ? "全不选" : "全选"}
+              <X className="h-5 w-5" />
             </button>
+            <div className="min-w-0 truncate text-lg font-semibold text-slate-900">已选择 {selectedMemoIds.size} 条</div>
           </div>
         ) : (
           <MobileHomeHeader
             isOnline={isOnline}
             isSyncingQueuedChanges={isSyncingQueuedChanges}
             user={user}
-            onOpenListActions={() => setMobileListActionsOpen(true)}
             onSyncQueuedChanges={onSyncQueuedChanges}
           />
         )}
         <MobileQuickActions
-          canCreateMemo={canCreateMemo && !selectionMode}
+          canCreateMemo={canCreateMemo}
           isCreating={isCreating}
           locked={selectionMode}
           onCreateChecklist={onCreateChecklist}
@@ -2823,6 +2832,15 @@ const MemoListPane = ({
               </div>
             </div>
           </div>
+          <button
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-700"
+            type="button"
+            title="列表选项"
+            aria-label="列表选项"
+            onClick={() => setMobileListActionsOpen(true)}
+          >
+            <MoreHorizontal className="h-5 w-5" />
+          </button>
         </div>
         <div className="mb-3 hidden min-w-0 lg:block">
           <div className="truncate text-lg font-semibold leading-6 text-slate-950">{listTitle}</div>
@@ -3176,7 +3194,7 @@ const MemoListPane = ({
               <section key={group.key}>
                 <div className="sticky top-0 z-[4] flex h-9 items-center justify-between bg-emerald-50/95 px-1 text-sm font-semibold text-slate-400 backdrop-blur lg:border-b lg:border-slate-200 lg:bg-white/95 lg:px-4 lg:text-slate-500">
                   <span>{group.label}</span>
-                  <span className="hidden lg:inline">{group.items.length}</span>
+                  <span>{group.items.length}</span>
                 </div>
                 <div className="space-y-3 lg:space-y-0">
                   {group.items.map((memo) => (
@@ -3365,6 +3383,7 @@ const MemoListPane = ({
         <MobileMoveSheet
           isMoving={isMoving}
           notebooks={notebooks}
+          selectedCount={selectedMemoIds.size}
           selectedNotebookId={moveTargetNotebookId}
           onClose={() => setMobileMoveOpen(false)}
           onMove={(notebookId) => {
@@ -3378,6 +3397,7 @@ const MemoListPane = ({
         <MobileSelectionMoreSheet
           canMerge={selectedMemoIds.size >= 2 && view !== "trash" && !isMerging}
           canToggleVisibleSelection={canToggleVisibleMemoSelection}
+          selectedCount={selectedMemoIds.size}
           selectionToggleLabel={visibleSelectionToggleLabel}
           onToggleVisibleSelection={() => {
             setMobileMoreOpen(false);
@@ -3462,13 +3482,10 @@ const groupMemos = (memos: MemoSummary[], sortMode: MemoSortMode) =>
 
 const groupMemosByDate = (memos: MemoSummary[], sortMode: MemoSortMode) => {
   const groups: Array<{ key: string; label: string; items: MemoSummary[] }> = [];
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const yesterday = today - 24 * 60 * 60 * 1000;
 
   for (const memo of memos) {
     const date = new Date(sortMode === "created-desc" ? memo.createdAt : memo.updatedAt);
-    const { key, label } = getMemoDateGroup(date, today, yesterday);
+    const { key, label } = getMemoMonthGroup(date);
     const current = groups[groups.length - 1];
 
     if (current?.key === key) {
@@ -3482,19 +3499,9 @@ const groupMemosByDate = (memos: MemoSummary[], sortMode: MemoSortMode) => {
   return groups;
 };
 
-const getMemoDateGroup = (date: Date, today: number, yesterday: number) => {
+const getMemoMonthGroup = (date: Date) => {
   if (Number.isNaN(date.getTime())) {
     return { key: "unknown", label: "未知时间" };
-  }
-
-  const memoDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-
-  if (memoDay === today) {
-    return { key: "today", label: "今天" };
-  }
-
-  if (memoDay === yesterday) {
-    return { key: "yesterday", label: "昨天" };
   }
 
   return {
@@ -3742,7 +3749,7 @@ const MemoCard = ({
         !selectionMode && selected
           ? "lg:bg-slate-200"
           : checked
-            ? "bg-slate-100 shadow-none ring-0 lg:bg-white lg:ring-0"
+            ? "bg-slate-100 shadow-none ring-0 lg:bg-slate-100 lg:ring-0"
             : "active:bg-slate-50 lg:hover:bg-slate-50"
       )}
     >
