@@ -97,15 +97,58 @@ type MemoView = "notebook" | "trash";
 type MemoFilterMode = "all" | "tagged" | "untagged" | "pinned";
 type MemoSortMode = "updated-desc" | "created-desc" | "title-asc";
 type MemoListDensity = "preview" | "compact";
-type MobileBottomNavItem = "home" | "search" | "assets" | "settings";
+type MobileBottomNavItem = "home" | "search" | "templates" | "settings";
 type MemoContextMenuState = { memo: MemoSummary; x: number; y: number };
 type NotebookDropPosition = "before" | "inside" | "after";
+type NotebookMoveOption = { id: string; name: string; selectLabel: string; slug: string | null; depth: number };
+type MemoTemplate = {
+  id: string;
+  title: string;
+  description: string;
+  contentMarkdown: string;
+  tags: string[];
+};
 
 const IMAGE_COMPRESSION_STORAGE_KEY = "edgeever.imageCompressionEnabled";
 const MEMO_LIST_WIDTH_STORAGE_KEY = "edgeever.memoListWidth";
 const DEFAULT_MEMO_LIST_WIDTH_PX = 360;
 const MIN_MEMO_LIST_WIDTH_PX = 300;
 const MAX_MEMO_LIST_WIDTH_PX = 540;
+const MEMO_SORT_OPTIONS: Array<{ value: MemoSortMode; label: string }> = [
+  { value: "updated-desc", label: "最近更新" },
+  { value: "created-desc", label: "创建时间" },
+  { value: "title-asc", label: "标题 A-Z" },
+];
+const MEMO_TEMPLATES: MemoTemplate[] = [
+  {
+    id: "quick-note",
+    title: "速记",
+    description: "适合临时记录想法、链接和灵感。",
+    contentMarkdown: "## 速记\n\n- \n\n## 后续动作\n\n- [ ] ",
+    tags: ["template", "quick-note"],
+  },
+  {
+    id: "meeting",
+    title: "会议记录",
+    description: "议题、结论和待办放在同一页。",
+    contentMarkdown: "## 会议记录\n\n时间：\n参与人：\n\n## 议题\n\n- \n\n## 结论\n\n- \n\n## 待办\n\n- [ ] ",
+    tags: ["template", "meeting"],
+  },
+  {
+    id: "reading",
+    title: "读书笔记",
+    description: "摘录、观点和下一步阅读整理。",
+    contentMarkdown: "## 读书笔记\n\n书名：\n作者：\n\n## 摘录\n\n> \n\n## 我的观点\n\n\n## 延伸问题\n\n- ",
+    tags: ["template", "reading"],
+  },
+  {
+    id: "daily",
+    title: "每日复盘",
+    description: "记录今天完成了什么、卡在哪里。",
+    contentMarkdown: "## 每日复盘\n\n## 今天完成\n\n- \n\n## 遇到的问题\n\n- \n\n## 明天优先级\n\n- [ ] ",
+    tags: ["template", "daily"],
+  },
+];
 const MEMO_LONG_PRESS_DELAY_MS = 520;
 const MEMO_LONG_PRESS_MOVE_TOLERANCE_PX = 14;
 
@@ -235,6 +278,7 @@ const WorkspaceApp = ({
   const [assetsOpen, setAssetsOpen] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [mobileNotebookPickerOpen, setMobileNotebookPickerOpen] = useState(false);
   const [mobileBottomNavActive, setMobileBottomNavActive] = useState<MobileBottomNavItem>("home");
   const [mobileSearchFocusToken, setMobileSearchFocusToken] = useState(0);
@@ -540,17 +584,18 @@ const WorkspaceApp = ({
     deleteNotebookMutation.mutate(notebook.id);
   };
 
-  const handleCreateMemo = () => {
+  const handleCreateMemo = (template?: MemoTemplate) => {
     if (!defaultMemoNotebookId || memoView === "trash") {
       return;
     }
 
+    setTemplatesOpen(false);
     setMobileBottomNavActive("home");
     createMemoMutation.mutate({
       notebookId: defaultMemoNotebookId,
-      title: DEFAULT_MEMO_TITLE,
-      contentMarkdown: "",
-      tags: [],
+      title: template?.title ?? DEFAULT_MEMO_TITLE,
+      contentMarkdown: template?.contentMarkdown ?? "",
+      tags: template?.tags ?? [],
     });
   };
 
@@ -687,8 +732,12 @@ const WorkspaceApp = ({
   };
 
   const handleOpenAssets = () => {
-    setMobileBottomNavActive("assets");
     setAssetsOpen(true);
+  };
+
+  const handleOpenTemplates = () => {
+    setMobileBottomNavActive("templates");
+    setTemplatesOpen(true);
   };
 
   const handleOpenSettings = () => {
@@ -698,6 +747,11 @@ const WorkspaceApp = ({
 
   const handleCloseAssets = () => {
     setAssetsOpen(false);
+    setMobileBottomNavActive("home");
+  };
+
+  const handleCloseTemplates = () => {
+    setTemplatesOpen(false);
     setMobileBottomNavActive("home");
   };
 
@@ -922,6 +976,14 @@ const WorkspaceApp = ({
       {assetsOpen ? <AssetsDialog onClose={handleCloseAssets} /> : null}
       {tagsOpen ? <TagsDialog onClose={() => setTagsOpen(false)} /> : null}
       {settingsOpen ? <SettingsDialog onClose={handleCloseSettings} /> : null}
+      {templatesOpen ? (
+        <TemplatesDialog
+          canCreateMemo={canCreateMemo}
+          isCreating={createMemoMutation.isPending}
+          onClose={handleCloseTemplates}
+          onCreateMemo={handleCreateMemo}
+        />
+      ) : null}
       {activePane !== "editor" && !memoSelectionModeActive ? (
         <MobileBottomNav
           activeItem={mobileBottomNavActive}
@@ -929,8 +991,8 @@ const WorkspaceApp = ({
           isCreating={createMemoMutation.isPending}
           onCreateMemo={handleCreateMemo}
           onHome={handleMobileHome}
-          onOpenAssets={handleOpenAssets}
           onOpenSettings={handleOpenSettings}
+          onOpenTemplates={handleOpenTemplates}
           onSearch={handleMobileSearch}
         />
       ) : null}
@@ -1389,8 +1451,8 @@ const MobileBottomNav = ({
   isCreating,
   onCreateMemo,
   onHome,
-  onOpenAssets,
   onOpenSettings,
+  onOpenTemplates,
   onSearch,
 }: {
   activeItem: MobileBottomNavItem;
@@ -1398,8 +1460,8 @@ const MobileBottomNav = ({
   isCreating: boolean;
   onCreateMemo: () => void;
   onHome: () => void;
-  onOpenAssets: () => void;
   onOpenSettings: () => void;
+  onOpenTemplates: () => void;
   onSearch: () => void;
 }) => (
   <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-emerald-100 bg-white/95 px-5 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
@@ -1407,7 +1469,12 @@ const MobileBottomNav = ({
       <MobileBottomNavButton active={activeItem === "home"} icon={<Home className="h-5 w-5" />} label="首页" onClick={onHome} />
       <MobileBottomNavButton active={activeItem === "search"} icon={<Search className="h-5 w-5" />} label="搜索" onClick={onSearch} />
       <div aria-hidden="true" />
-      <MobileBottomNavButton active={activeItem === "assets"} icon={<Archive className="h-5 w-5" />} label="附件" onClick={onOpenAssets} />
+      <MobileBottomNavButton
+        active={activeItem === "templates"}
+        icon={<LayoutList className="h-5 w-5" />}
+        label="模板"
+        onClick={onOpenTemplates}
+      />
       <MobileBottomNavButton active={activeItem === "settings"} icon={<UserRound className="h-5 w-5" />} label="我的" onClick={onOpenSettings} />
       <button
         className="absolute left-1/2 top-[-1.35rem] flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-full border-[6px] border-white bg-emerald-600 text-white shadow-[0_12px_26px_rgba(5,150,105,0.32)] transition hover:bg-emerald-700 disabled:opacity-50"
@@ -1444,6 +1511,12 @@ const MobileBottomNavButton = ({
     {icon}
     <span>{label}</span>
   </button>
+);
+
+const MobileSheetGrabber = () => (
+  <div className="flex justify-center py-2 sm:hidden">
+    <div className="h-1 w-10 rounded-full bg-slate-300" />
+  </div>
 );
 
 const MobileHomeHeader = ({
@@ -1809,6 +1882,7 @@ const MobileListActionsSheet = ({
       className="absolute inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] overflow-hidden rounded-md border border-slate-200 bg-white shadow-panel"
       onClick={(event) => event.stopPropagation()}
     >
+      <MobileSheetGrabber />
       <header className="flex h-12 items-center justify-between border-b border-slate-200 px-4">
         <div className="text-sm font-semibold text-slate-950">列表选项</div>
         <Button size="icon" variant="ghost" title="关闭" onClick={onClose}>
@@ -1948,6 +2022,7 @@ const MobileMoveSheet = ({
         className="absolute inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-h-[52dvh] overflow-hidden rounded-md border border-slate-200 bg-white shadow-panel"
         onClick={(event) => event.stopPropagation()}
       >
+        <MobileSheetGrabber />
         <header className="flex h-12 items-center justify-between border-b border-slate-200 px-4">
           <div className="text-sm font-semibold text-slate-950">移动到笔记本</div>
           <Button size="icon" variant="ghost" title="关闭" onClick={onClose}>
@@ -1977,6 +2052,58 @@ const MobileMoveSheet = ({
   );
 };
 
+const MobileNotebookSelectSheet = ({
+  isUpdating,
+  options,
+  selectedNotebookId,
+  onClose,
+  onSelect,
+}: {
+  isUpdating: boolean;
+  options: NotebookMoveOption[];
+  selectedNotebookId: string;
+  onClose: () => void;
+  onSelect: (notebookId: string) => void;
+}) => (
+  <div className="fixed inset-0 z-50 bg-slate-950/25 lg:hidden" onClick={onClose}>
+    <section
+      className="absolute inset-x-0 bottom-0 max-h-[62dvh] overflow-hidden rounded-t-md border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-16px_40px_rgba(15,23,42,0.16)]"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <MobileSheetGrabber />
+      <header className="flex h-12 items-center justify-between border-b border-slate-200 px-4">
+        <div className="text-base font-semibold text-slate-950">所在笔记本</div>
+        <Button size="icon" variant="ghost" title="关闭" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </Button>
+      </header>
+      <div className="max-h-[calc(62dvh-3.75rem-env(safe-area-inset-bottom))] overflow-y-auto p-2">
+        {options.map((option) => {
+          const selected = option.id === selectedNotebookId;
+
+          return (
+            <button
+              key={option.id}
+              className={cn(
+                "flex h-12 w-full items-center gap-2 rounded-md px-3 text-left text-sm transition",
+                selected ? "bg-emerald-100 font-semibold text-emerald-950" : "text-slate-700 hover:bg-slate-50"
+              )}
+              style={{ paddingLeft: `${12 + option.depth * 18}px` }}
+              type="button"
+              disabled={isUpdating}
+              onClick={() => onSelect(option.id)}
+            >
+              {option.slug === "inbox" ? <Inbox className="h-5 w-5 shrink-0" /> : <Folder className="h-5 w-5 shrink-0" />}
+              <span className="min-w-0 flex-1 truncate text-base">{option.name}</span>
+              {selected ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" /> : null}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  </div>
+);
+
 const MobileSelectionMoreSheet = ({
   canMerge,
   canToggleVisibleSelection,
@@ -1999,6 +2126,7 @@ const MobileSelectionMoreSheet = ({
       className="absolute inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] overflow-hidden rounded-md border border-slate-200 bg-white shadow-panel"
       onClick={(event) => event.stopPropagation()}
     >
+      <MobileSheetGrabber />
       <button
         className="flex h-12 w-full items-center gap-3 border-b border-slate-100 px-4 text-left text-sm font-medium text-slate-800 transition hover:bg-slate-50 disabled:opacity-40"
         type="button"
@@ -2252,6 +2380,8 @@ const MemoListPane = ({
   onSyncQueuedChanges: () => void;
 }) => {
   const [moveTargetNotebookId, setMoveTargetNotebookId] = useState(notebook?.id ?? notebooks[0]?.id ?? "");
+  const [desktopFilterOpen, setDesktopFilterOpen] = useState(false);
+  const [desktopSortOpen, setDesktopSortOpen] = useState(false);
   const [desktopActionsOpen, setDesktopActionsOpen] = useState(false);
   const [mobileListActionsOpen, setMobileListActionsOpen] = useState(false);
   const [mobileMoveOpen, setMobileMoveOpen] = useState(false);
@@ -2276,6 +2406,8 @@ const MemoListPane = ({
   const canSelectAllVisibleMemos = visibleMemoIds.some((memoId) => !selectedMemoIds.has(memoId));
   const canToggleVisibleMemoSelection = visibleMemoIds.length > 0;
   const visibleSelectionToggleLabel = allVisibleMemosSelected ? "全不选当前列表" : "全选当前列表";
+  const desktopFilterRef = useDismissableLayer<HTMLDivElement>(desktopFilterOpen, () => setDesktopFilterOpen(false));
+  const desktopSortRef = useDismissableLayer<HTMLDivElement>(desktopSortOpen, () => setDesktopSortOpen(false));
   const desktopActionsRef = useDismissableLayer<HTMLDivElement>(desktopActionsOpen, () => setDesktopActionsOpen(false));
   const memoContextMenuRef = useDismissableLayer<HTMLDivElement>(Boolean(memoContextMenu), () => setMemoContextMenu(null));
   const listTitle = view === "trash" ? "回收站" : notebook?.name ?? "全部笔记";
@@ -2285,6 +2417,7 @@ const MemoListPane = ({
   }`;
   const hasListConstraint = Boolean(search.trim()) || filterMode !== "all";
   const activeFilterLabel = filterOptions.find((option) => option.value === filterMode)?.label ?? "全部";
+  const activeSortLabel = MEMO_SORT_OPTIONS.find((option) => option.value === sortMode)?.label ?? "最近更新";
 
   useEffect(() => {
     if (notebook?.id) {
@@ -2539,28 +2672,93 @@ const MemoListPane = ({
             </div>
           </div>
           <div className="hidden shrink-0 items-center gap-1 lg:flex">
-            <select
-              className="h-8 rounded-md border border-emerald-100 bg-white px-2 text-xs font-medium text-slate-700 outline-none"
-              value={filterMode}
-              onChange={(event) => setFilterMode(event.target.value as MemoFilterMode)}
-              title="筛选"
+            <Button
+              size="icon"
+              variant="ghost"
+              title="选择笔记"
+              onClick={onEnterSelectionMode}
+              disabled={!canEnterSelectionMode}
             >
-              {filterOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <select
-              className="h-8 rounded-md border border-emerald-100 bg-white px-2 text-xs font-medium text-slate-700 outline-none"
-              value={sortMode}
-              onChange={(event) => setSortMode(event.target.value as MemoSortMode)}
-              title="排序"
-            >
-              <option value="updated-desc">最近更新</option>
-              <option value="created-desc">创建时间</option>
-              <option value="title-asc">标题 A-Z</option>
-            </select>
+              <CheckSquare className="h-4 w-4" />
+            </Button>
+            <div className="relative" ref={desktopFilterRef}>
+              <button
+                className={cn(
+                  "flex h-8 items-center gap-1 rounded-md border px-2 text-xs font-medium transition",
+                  filterMode === "all"
+                    ? "border-emerald-100 bg-white text-slate-600 hover:bg-emerald-50 hover:text-emerald-800"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                )}
+                type="button"
+                title={`筛选：${activeFilterLabel}`}
+                aria-expanded={desktopFilterOpen}
+                onClick={() => {
+                  setDesktopSortOpen(false);
+                  setDesktopActionsOpen(false);
+                  setDesktopFilterOpen((value) => !value);
+                }}
+              >
+                {getMobileFilterIcon(filterMode)}
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+              {desktopFilterOpen ? (
+                <div className="absolute right-0 top-9 z-30 w-44 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-panel">
+                  {filterOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      className="flex h-9 w-full items-center gap-2 px-3 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                      type="button"
+                      onClick={() => {
+                        setFilterMode(option.value);
+                        setDesktopFilterOpen(false);
+                      }}
+                    >
+                      {getMobileFilterIcon(option.value)}
+                      <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                      <CheckCircle2
+                        className={cn("h-4 w-4 shrink-0", filterMode === option.value ? "text-emerald-600" : "text-transparent")}
+                      />
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <div className="relative" ref={desktopSortRef}>
+              <button
+                className="flex h-8 items-center gap-1 rounded-md border border-emerald-100 bg-white px-2 text-xs font-medium text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-800"
+                type="button"
+                title={`排序：${activeSortLabel}`}
+                aria-expanded={desktopSortOpen}
+                onClick={() => {
+                  setDesktopFilterOpen(false);
+                  setDesktopActionsOpen(false);
+                  setDesktopSortOpen((value) => !value);
+                }}
+              >
+                <LayoutList className="h-4 w-4" />
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+              {desktopSortOpen ? (
+                <div className="absolute right-0 top-9 z-30 w-44 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-panel">
+                  {MEMO_SORT_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      className="flex h-9 w-full items-center gap-2 px-3 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                      type="button"
+                      onClick={() => {
+                        setSortMode(option.value);
+                        setDesktopSortOpen(false);
+                      }}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                      <CheckCircle2
+                        className={cn("h-4 w-4 shrink-0", sortMode === option.value ? "text-emerald-600" : "text-transparent")}
+                      />
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
             <div className="flex h-8 overflow-hidden rounded-md border border-emerald-100 bg-white">
               <button
                 className={cn(
@@ -2599,7 +2797,11 @@ const MemoListPane = ({
                 size="icon"
                 variant="ghost"
                 title="更多"
-                onClick={() => setDesktopActionsOpen((value) => !value)}
+                onClick={() => {
+                  setDesktopFilterOpen(false);
+                  setDesktopSortOpen(false);
+                  setDesktopActionsOpen((value) => !value);
+                }}
               >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
@@ -3169,7 +3371,7 @@ const compareDateDesc = (first: string, second: string) => {
 };
 
 const getNotebookMoveOptions = (notebooks: Notebook[]) => {
-  const options: Array<{ id: string; name: string; selectLabel: string; slug: string | null; depth: number }> = [];
+  const options: NotebookMoveOption[] = [];
   const walk = (nodes: NotebookNode[], depth: number) => {
     for (const node of nodes) {
       options.push({
@@ -3495,6 +3697,64 @@ const getImageFilesFromDataTransfer = (dataTransfer: DataTransfer | null) => {
   return files.filter((file) => SUPPORTED_PASTE_IMAGE_TYPES.has(file.type));
 };
 
+const TemplatesDialog = ({
+  canCreateMemo,
+  isCreating,
+  onClose,
+  onCreateMemo,
+}: {
+  canCreateMemo: boolean;
+  isCreating: boolean;
+  onClose: () => void;
+  onCreateMemo: (template: MemoTemplate) => void;
+}) => (
+  <div className="fixed inset-0 z-50 flex items-end bg-slate-950/35 p-0 sm:items-center sm:justify-center sm:p-6" onClick={onClose}>
+    <section
+      className="flex max-h-[88dvh] w-full flex-col rounded-t-md bg-white shadow-panel sm:max-w-[620px] sm:rounded-md"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <MobileSheetGrabber />
+      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-emerald-100 px-4 py-3 sm:px-5">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-base font-semibold text-slate-950">
+            <LayoutList className="h-4 w-4 text-emerald-700" />
+            模板
+          </div>
+          <div className="mt-1 text-xs text-slate-500">选择一个模板，直接创建新笔记。</div>
+        </div>
+        <Button size="icon" variant="ghost" title="关闭" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </Button>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+        <div className="grid gap-2 sm:grid-cols-2">
+          {MEMO_TEMPLATES.map((template) => (
+            <button
+              key={template.id}
+              className="group flex min-h-28 flex-col rounded-md border border-emerald-100 bg-emerald-50/30 p-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50 disabled:opacity-50"
+              type="button"
+              disabled={!canCreateMemo || isCreating}
+              onClick={() => onCreateMemo(template)}
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-md border border-emerald-100 bg-white text-emerald-700 transition group-hover:border-emerald-200">
+                <FileIcon className="h-4 w-4" />
+              </span>
+              <span className="mt-3 text-sm font-semibold text-slate-950">{template.title}</span>
+              <span className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{template.description}</span>
+            </button>
+          ))}
+        </div>
+        {!canCreateMemo ? (
+          <div className="mt-3 rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            当前无法创建笔记，请先选择可用笔记本。
+          </div>
+        ) : null}
+      </div>
+    </section>
+  </div>
+);
+
 const AssetsDialog = ({ onClose }: { onClose: () => void }) => {
   const resourcesQuery = useQuery({
     queryKey: ["resources"],
@@ -3509,8 +3769,12 @@ const AssetsDialog = ({ onClose }: { onClose: () => void }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/35 p-0 sm:items-center sm:justify-center sm:p-6">
-      <section className="flex max-h-[88dvh] w-full flex-col rounded-t-md bg-white shadow-panel sm:max-w-[760px] sm:rounded-md">
+    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/35 p-0 sm:items-center sm:justify-center sm:p-6" onClick={onClose}>
+      <section
+        className="flex max-h-[88dvh] w-full flex-col rounded-t-md bg-white shadow-panel sm:max-w-[760px] sm:rounded-md"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <MobileSheetGrabber />
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-emerald-100 px-4 py-3 sm:px-5">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-base font-semibold text-slate-950">
@@ -3623,8 +3887,12 @@ const TagsDialog = ({ onClose }: { onClose: () => void }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/35 p-0 sm:items-center sm:justify-center sm:p-6">
-      <section className="flex max-h-[88dvh] w-full flex-col rounded-t-md bg-white shadow-panel sm:max-w-[680px] sm:rounded-md">
+    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/35 p-0 sm:items-center sm:justify-center sm:p-6" onClick={onClose}>
+      <section
+        className="flex max-h-[88dvh] w-full flex-col rounded-t-md bg-white shadow-panel sm:max-w-[680px] sm:rounded-md"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <MobileSheetGrabber />
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-emerald-100 px-4 py-3 sm:px-5">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-base font-semibold text-slate-950">
@@ -3738,8 +4006,15 @@ const SettingsDialog = ({ onClose }: { onClose: () => void }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/35 p-0 sm:items-center sm:justify-center sm:p-6">
-      <section className="flex max-h-[92dvh] w-full flex-col rounded-t-md bg-white shadow-panel sm:max-w-[820px] sm:rounded-md">
+    <div
+      className="fixed inset-0 z-50 flex items-end bg-slate-950/35 p-0 sm:items-center sm:justify-center sm:p-6"
+      onClick={createdToken ? undefined : onClose}
+    >
+      <section
+        className="flex max-h-[92dvh] w-full flex-col rounded-t-md bg-white shadow-panel sm:max-w-[820px] sm:rounded-md"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <MobileSheetGrabber />
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-emerald-100 px-4 py-3 sm:px-5">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-base font-semibold text-slate-950">
@@ -3906,8 +4181,12 @@ const RevisionHistoryDialog = ({
   }, [revisions, selectedRevisionId]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/35 p-0 sm:items-center sm:justify-center sm:p-6">
-      <section className="flex max-h-[88dvh] w-full flex-col rounded-t-md bg-white shadow-panel sm:max-w-[980px] sm:rounded-md">
+    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/35 p-0 sm:items-center sm:justify-center sm:p-6" onClick={onClose}>
+      <section
+        className="flex max-h-[88dvh] w-full flex-col rounded-t-md bg-white shadow-panel sm:max-w-[980px] sm:rounded-md"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <MobileSheetGrabber />
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-emerald-100 px-4 py-3 sm:px-5">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-base font-semibold text-slate-950">
@@ -4094,110 +4373,114 @@ const EditorToolbar = ({ editor, readOnly }: { editor: Editor | null; readOnly: 
   };
 
   return (
-    <div className="flex min-h-12 items-center gap-2 overflow-x-auto border-t border-emerald-100 bg-emerald-50/35 px-3 py-2 sm:px-5">
-      <select
-        className="h-8 w-28 shrink-0 rounded-md border border-emerald-100 bg-white px-2 text-xs font-medium text-emerald-950 outline-none disabled:opacity-50"
-        value={blockValue}
-        disabled={disabled}
-        onChange={(event) => setBlock(event.target.value)}
-        title="段落样式"
-      >
-        <option value="paragraph">正文</option>
-        <option value="heading-1">标题 1</option>
-        <option value="heading-2">标题 2</option>
-        <option value="heading-3">标题 3</option>
-      </select>
+    <div className="relative border-t border-emerald-100 bg-emerald-50/35">
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-4 bg-gradient-to-r from-emerald-50/95 to-transparent sm:hidden" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-4 bg-gradient-to-l from-emerald-50/95 to-transparent sm:hidden" />
+      <div className="flex min-h-12 items-center gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] sm:px-5 [&::-webkit-scrollbar]:hidden">
+        <select
+          className="h-8 w-28 shrink-0 rounded-md border border-emerald-100 bg-white px-2 text-xs font-medium text-emerald-950 outline-none disabled:opacity-50"
+          value={blockValue}
+          disabled={disabled}
+          onChange={(event) => setBlock(event.target.value)}
+          title="段落样式"
+        >
+          <option value="paragraph">正文</option>
+          <option value="heading-1">标题 1</option>
+          <option value="heading-2">标题 2</option>
+          <option value="heading-3">标题 3</option>
+        </select>
 
-      <ToolbarDivider />
-      <EditorToolbarButton
-        title="撤销"
-        disabled={!canRun((current) => current.can().chain().focus().undo().run())}
-        onClick={() => run((current) => current.chain().focus().undo().run())}
-      >
-        <Undo2 className="h-4 w-4" />
-      </EditorToolbarButton>
-      <EditorToolbarButton
-        title="重做"
-        disabled={!canRun((current) => current.can().chain().focus().redo().run())}
-        onClick={() => run((current) => current.chain().focus().redo().run())}
-      >
-        <Redo2 className="h-4 w-4" />
-      </EditorToolbarButton>
+        <ToolbarDivider />
+        <EditorToolbarButton
+          title="撤销"
+          disabled={!canRun((current) => current.can().chain().focus().undo().run())}
+          onClick={() => run((current) => current.chain().focus().undo().run())}
+        >
+          <Undo2 className="h-4 w-4" />
+        </EditorToolbarButton>
+        <EditorToolbarButton
+          title="重做"
+          disabled={!canRun((current) => current.can().chain().focus().redo().run())}
+          onClick={() => run((current) => current.chain().focus().redo().run())}
+        >
+          <Redo2 className="h-4 w-4" />
+        </EditorToolbarButton>
 
-      <ToolbarDivider />
-      <EditorToolbarButton
-        title="加粗"
-        active={Boolean(editor?.isActive("bold"))}
-        disabled={!canRun((current) => current.can().chain().focus().toggleBold().run())}
-        onClick={() => run((current) => current.chain().focus().toggleBold().run())}
-      >
-        <Bold className="h-4 w-4" />
-      </EditorToolbarButton>
-      <EditorToolbarButton
-        title="斜体"
-        active={Boolean(editor?.isActive("italic"))}
-        disabled={!canRun((current) => current.can().chain().focus().toggleItalic().run())}
-        onClick={() => run((current) => current.chain().focus().toggleItalic().run())}
-      >
-        <Italic className="h-4 w-4" />
-      </EditorToolbarButton>
-      <EditorToolbarButton
-        title="删除线"
-        active={Boolean(editor?.isActive("strike"))}
-        disabled={!canRun((current) => current.can().chain().focus().toggleStrike().run())}
-        onClick={() => run((current) => current.chain().focus().toggleStrike().run())}
-      >
-        <Strikethrough className="h-4 w-4" />
-      </EditorToolbarButton>
-      <EditorToolbarButton
-        title="行内代码"
-        active={Boolean(editor?.isActive("code"))}
-        disabled={!canRun((current) => current.can().chain().focus().toggleCode().run())}
-        onClick={() => run((current) => current.chain().focus().toggleCode().run())}
-      >
-        <Code2 className="h-4 w-4" />
-      </EditorToolbarButton>
+        <ToolbarDivider />
+        <EditorToolbarButton
+          title="加粗"
+          active={Boolean(editor?.isActive("bold"))}
+          disabled={!canRun((current) => current.can().chain().focus().toggleBold().run())}
+          onClick={() => run((current) => current.chain().focus().toggleBold().run())}
+        >
+          <Bold className="h-4 w-4" />
+        </EditorToolbarButton>
+        <EditorToolbarButton
+          title="斜体"
+          active={Boolean(editor?.isActive("italic"))}
+          disabled={!canRun((current) => current.can().chain().focus().toggleItalic().run())}
+          onClick={() => run((current) => current.chain().focus().toggleItalic().run())}
+        >
+          <Italic className="h-4 w-4" />
+        </EditorToolbarButton>
+        <EditorToolbarButton
+          title="删除线"
+          active={Boolean(editor?.isActive("strike"))}
+          disabled={!canRun((current) => current.can().chain().focus().toggleStrike().run())}
+          onClick={() => run((current) => current.chain().focus().toggleStrike().run())}
+        >
+          <Strikethrough className="h-4 w-4" />
+        </EditorToolbarButton>
+        <EditorToolbarButton
+          title="行内代码"
+          active={Boolean(editor?.isActive("code"))}
+          disabled={!canRun((current) => current.can().chain().focus().toggleCode().run())}
+          onClick={() => run((current) => current.chain().focus().toggleCode().run())}
+        >
+          <Code2 className="h-4 w-4" />
+        </EditorToolbarButton>
 
-      <ToolbarDivider />
-      <EditorToolbarButton
-        title="无序列表"
-        active={Boolean(editor?.isActive("bulletList"))}
-        disabled={disabled}
-        onClick={() => run((current) => current.chain().focus().toggleBulletList().run())}
-      >
-        <List className="h-4 w-4" />
-      </EditorToolbarButton>
-      <EditorToolbarButton
-        title="有序列表"
-        active={Boolean(editor?.isActive("orderedList"))}
-        disabled={disabled}
-        onClick={() => run((current) => current.chain().focus().toggleOrderedList().run())}
-      >
-        <ListOrdered className="h-4 w-4" />
-      </EditorToolbarButton>
-      <EditorToolbarButton
-        title="引用"
-        active={Boolean(editor?.isActive("blockquote"))}
-        disabled={disabled}
-        onClick={() => run((current) => current.chain().focus().toggleBlockquote().run())}
-      >
-        <Quote className="h-4 w-4" />
-      </EditorToolbarButton>
-      <EditorToolbarButton
-        title="代码块"
-        active={Boolean(editor?.isActive("codeBlock"))}
-        disabled={disabled}
-        onClick={() => run((current) => current.chain().focus().toggleCodeBlock().run())}
-      >
-        <SquareCode className="h-4 w-4" />
-      </EditorToolbarButton>
-      <EditorToolbarButton
-        title="分割线"
-        disabled={disabled}
-        onClick={() => run((current) => current.chain().focus().setHorizontalRule().run())}
-      >
-        <Minus className="h-4 w-4" />
-      </EditorToolbarButton>
+        <ToolbarDivider />
+        <EditorToolbarButton
+          title="无序列表"
+          active={Boolean(editor?.isActive("bulletList"))}
+          disabled={disabled}
+          onClick={() => run((current) => current.chain().focus().toggleBulletList().run())}
+        >
+          <List className="h-4 w-4" />
+        </EditorToolbarButton>
+        <EditorToolbarButton
+          title="有序列表"
+          active={Boolean(editor?.isActive("orderedList"))}
+          disabled={disabled}
+          onClick={() => run((current) => current.chain().focus().toggleOrderedList().run())}
+        >
+          <ListOrdered className="h-4 w-4" />
+        </EditorToolbarButton>
+        <EditorToolbarButton
+          title="引用"
+          active={Boolean(editor?.isActive("blockquote"))}
+          disabled={disabled}
+          onClick={() => run((current) => current.chain().focus().toggleBlockquote().run())}
+        >
+          <Quote className="h-4 w-4" />
+        </EditorToolbarButton>
+        <EditorToolbarButton
+          title="代码块"
+          active={Boolean(editor?.isActive("codeBlock"))}
+          disabled={disabled}
+          onClick={() => run((current) => current.chain().focus().toggleCodeBlock().run())}
+        >
+          <SquareCode className="h-4 w-4" />
+        </EditorToolbarButton>
+        <EditorToolbarButton
+          title="分割线"
+          disabled={disabled}
+          onClick={() => run((current) => current.chain().focus().setHorizontalRule().run())}
+        >
+          <Minus className="h-4 w-4" />
+        </EditorToolbarButton>
+      </div>
     </div>
   );
 };
@@ -4367,6 +4650,8 @@ const EditorPane = ({
   const [imageUploadState, setImageUploadState] = useState<"idle" | "compressing" | "uploading" | "error">("idle");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [editorActionsOpen, setEditorActionsOpen] = useState(false);
+  const [mobileNotebookSheetOpen, setMobileNotebookSheetOpen] = useState(false);
+  const [notebookUpdatePending, setNotebookUpdatePending] = useState(false);
   const notebookOptions = useMemo(() => getNotebookMoveOptions(notebooks), [notebooks]);
   const memoRef = useRef<MemoDetail | null>(memo);
   const editorRef = useRef<Editor | null>(null);
@@ -4792,6 +5077,65 @@ const EditorPane = ({
         ? "bg-emerald-50 text-emerald-700"
         : saveStateClassName;
   const updatedLabel = formatDateTime(memo.updatedAt);
+  const currentNotebookLabel = notebookOptions.find((notebook) => notebook.id === memo.notebookId)?.name ?? "笔记本";
+  const mobileDoneDisabled =
+    saveMutation.isPending ||
+    notebookUpdatePending ||
+    imageUploadState === "compressing" ||
+    imageUploadState === "uploading";
+  const updateMemoNotebook = (notebookId: string, sourceMemo: MemoDetail = memoRef.current ?? memo) => {
+    if (readOnly || notebookId === sourceMemo.notebookId || notebookUpdatePending) {
+      setMobileNotebookSheetOpen(false);
+      return;
+    }
+
+    setNotebookUpdatePending(true);
+    setSaveState("saving");
+
+    void api
+      .updateMemo(sourceMemo.id, {
+        expectedRevision: sourceMemo.revision,
+        notebookId,
+      })
+      .then(async (data) => {
+        memoRef.current = data.memo;
+        await onSaved(data.memo);
+        setSaveState("saved");
+        window.setTimeout(() => setSaveState("idle"), 1200);
+      })
+      .catch(() => setSaveState("error"))
+      .finally(() => {
+        setNotebookUpdatePending(false);
+        setMobileNotebookSheetOpen(false);
+      });
+  };
+  const handleNotebookChange = (notebookId: string) => {
+    if (!hasUnsavedChanges || saveMutation.isPending) {
+      updateMemoNotebook(notebookId);
+      return;
+    }
+
+    saveMutation.mutate(undefined, {
+      onSuccess: ({ memo: savedMemo }) => updateMemoNotebook(notebookId, savedMemo),
+    });
+  };
+  const handleMobileDone = () => {
+    if (readOnly || !editor || !hasUnsavedChanges) {
+      onBackToList();
+      return;
+    }
+
+    saveMutation.mutate(undefined, {
+      onSuccess: () => onBackToList(),
+      onError: (error) => {
+        const sourceError = error instanceof MemoSaveRequestError ? error.originalError : error;
+
+        if (error instanceof MemoSaveRequestError && shouldQueueMemoSaveError(sourceError)) {
+          onBackToList();
+        }
+      },
+    });
+  };
 
   return (
     <div className="flex h-full min-w-0 flex-col">
@@ -4829,18 +5173,22 @@ const EditorPane = ({
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
+            <button
+              className="flex h-8 min-w-0 max-w-[112px] items-center gap-1 rounded-md border border-transparent bg-transparent px-2 text-xs font-medium text-slate-700 outline-none transition hover:border-emerald-100 hover:bg-emerald-50/70 disabled:opacity-50 sm:hidden"
+              type="button"
+              disabled={readOnly || notebookUpdatePending}
+              title="所在笔记本"
+              onClick={() => setMobileNotebookSheetOpen(true)}
+            >
+              <Folder className="h-3.5 w-3.5 shrink-0" />
+              <span className="min-w-0 truncate">{currentNotebookLabel}</span>
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+            </button>
             <select
               value={memo.notebookId}
-              className="h-8 min-w-0 max-w-[112px] rounded-md border border-transparent bg-transparent px-2 text-xs font-medium text-slate-700 outline-none hover:border-emerald-100 hover:bg-emerald-50/70 sm:max-w-[260px]"
-              disabled={readOnly}
-              onChange={(event) => {
-                void api
-                  .updateMemo(memo.id, {
-                    expectedRevision: memo.revision,
-                    notebookId: event.target.value,
-                  })
-                  .then((data) => onSaved(data.memo));
-              }}
+              className="hidden h-8 min-w-0 max-w-[260px] rounded-md border border-transparent bg-transparent px-2 text-xs font-medium text-slate-700 outline-none hover:border-emerald-100 hover:bg-emerald-50/70 sm:block"
+              disabled={readOnly || notebookUpdatePending}
+              onChange={(event) => handleNotebookChange(event.target.value)}
               title="所在笔记本"
             >
               {notebookOptions.map((notebook) => (
@@ -4877,11 +5225,20 @@ const EditorPane = ({
             <span className={cn("inline-flex max-w-[4rem] truncate rounded-full px-2 py-1 text-[11px] font-medium sm:hidden", mobileStatusClassName)}>
               {mobileStatusLabel}
             </span>
+            <button
+              className="inline-flex h-8 items-center justify-center rounded-full bg-slate-950 px-3 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-500 sm:hidden"
+              type="button"
+              disabled={mobileDoneDisabled}
+              onClick={handleMobileDone}
+            >
+              {saveMutation.isPending ? "保存中" : "完成"}
+            </button>
             <Button className="hidden sm:inline-flex" size="icon" variant="ghost" title="版本历史" onClick={() => setHistoryOpen(true)}>
               <History className="h-4 w-4" />
             </Button>
             {!readOnly ? (
               <Button
+                className="hidden sm:inline-flex"
                 size="icon"
                 variant="solid"
                 title="保存"
@@ -5028,6 +5385,15 @@ const EditorPane = ({
             await onSaved(restoredMemo);
             setHistoryOpen(false);
           }}
+        />
+      ) : null}
+      {mobileNotebookSheetOpen ? (
+        <MobileNotebookSelectSheet
+          isUpdating={notebookUpdatePending || saveMutation.isPending}
+          options={notebookOptions}
+          selectedNotebookId={memo.notebookId}
+          onClose={() => setMobileNotebookSheetOpen(false)}
+          onSelect={handleNotebookChange}
         />
       ) : null}
     </div>
