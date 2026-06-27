@@ -1,0 +1,338 @@
+import { useState, useEffect, useRef, type DragEvent } from "react";
+import { ChevronDown, ChevronRight, Notebook as NotebookIcon, Plus, Pencil, Trash2 } from "lucide-react";
+import type { NotebookNode, NotebookDropPosition } from "@/lib/app-helpers";
+import {
+  hasMemoDragData,
+  hasNotebookDragData,
+  getMemoDragIds,
+  getNotebookDropPosition,
+  notebookTreeContainsId,
+  focusNotebookTreeButton,
+  NOTEBOOK_DRAG_MIME,
+} from "@/lib/app-helpers";
+import { cn } from "@/lib/utils";
+import type { Notebook } from "@edgeever/shared";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+
+const NOTEBOOK_DRAG_EXPAND_DELAY_MS = 520;
+
+export const NotebookTreeItem = ({
+  node,
+  depth,
+  selectedNotebookId,
+  onSelect,
+  onCreateNotebook,
+  onRenameNotebook,
+  onDeleteNotebook,
+  onMoveNotebook,
+  onMoveMemos,
+  onDragScroll,
+  expandSiblingsRequest,
+  onExpandSiblings,
+}: {
+  node: NotebookNode;
+  depth: number;
+  selectedNotebookId: string | null;
+  onSelect: (notebookId: string) => void;
+  onCreateNotebook: (parentId?: string | null) => void;
+  onRenameNotebook: (notebook: Notebook) => void;
+  onDeleteNotebook: (notebook: Notebook) => void;
+  onMoveNotebook: (notebookId: string, targetNotebookId: string, position: NotebookDropPosition) => void;
+  onMoveMemos: (memoIds: string[], targetNotebookId: string) => void;
+  onDragScroll: (event: DragEvent<HTMLDivElement>) => void;
+  expandSiblingsRequest: { parentId: string | null; token: number } | null;
+  onExpandSiblings: (parentId: string | null) => void;
+}) => {
+  const [open, setOpen] = useState(true);
+  const hasChildren = node.children.length > 0;
+  const selected = node.id === selectedNotebookId;
+  const isInbox = node.slug === "inbox";
+  const hasSelectedDescendant = selectedNotebookId ? notebookTreeContainsId(node.children, selectedNotebookId) : false;
+  const [dropPosition, setDropPosition] = useState<NotebookDropPosition | null>(null);
+  const expandTimerRef = useRef<number | null>(null);
+
+  const clearExpandTimer = () => {
+    if (expandTimerRef.current === null) {
+      return;
+    }
+
+    window.clearTimeout(expandTimerRef.current);
+    expandTimerRef.current = null;
+  };
+
+  useEffect(() => () => clearExpandTimer(), []);
+
+  useEffect(() => {
+    if (hasSelectedDescendant) {
+      setOpen(true);
+    }
+  }, [hasSelectedDescendant]);
+
+  useEffect(() => {
+    if (!expandSiblingsRequest || expandSiblingsRequest.parentId !== node.parentId || !hasChildren) {
+      return;
+    }
+
+    setOpen(true);
+  }, [expandSiblingsRequest, hasChildren, node.parentId]);
+
+  const scheduleDragExpand = (position: NotebookDropPosition) => {
+    if (!hasChildren || open || position !== "inside") {
+      clearExpandTimer();
+      return;
+    }
+
+    if (expandTimerRef.current !== null) {
+      return;
+    }
+
+    expandTimerRef.current = window.setTimeout(() => {
+      expandTimerRef.current = null;
+      setOpen(true);
+    }, NOTEBOOK_DRAG_EXPAND_DELAY_MS);
+  };
+
+  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
+    onDragScroll(event);
+
+    if (hasMemoDragData(event.dataTransfer)) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.dataTransfer.dropEffect = "move";
+      setDropPosition("inside");
+      scheduleDragExpand("inside");
+      return;
+    }
+
+    if (!hasNotebookDragData(event.dataTransfer)) {
+      return;
+    }
+
+    const position = getNotebookDropPosition(event);
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDropPosition(position);
+    scheduleDragExpand(position);
+  };
+
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const memoIds = getMemoDragIds(event.dataTransfer);
+    const notebookId = event.dataTransfer.getData(NOTEBOOK_DRAG_MIME);
+    const position = getNotebookDropPosition(event);
+    setDropPosition(null);
+    clearExpandTimer();
+
+    if (memoIds.length > 0) {
+      onMoveMemos(memoIds, node.id);
+      setOpen(true);
+      return;
+    }
+
+    if (!notebookId || notebookId === node.id) {
+      return;
+    }
+
+    onMoveNotebook(notebookId, node.id, position);
+    setOpen(true);
+  };
+
+  return (
+    <div>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div
+            data-notebook-id={node.id}
+            className={cn(
+              "group flex h-9 items-center gap-1 rounded-md px-2 text-sm transition-all duration-200 select-none",
+              selected
+                ? "bg-[#f3f7f1] font-medium text-[#526d49]"
+                : hasSelectedDescendant
+                  ? "bg-[#f3f7f1]/70 text-[#526d49] hover:bg-[#f3f7f1]"
+                  : "text-slate-700 hover:bg-slate-50",
+              dropPosition === "inside" && "ring-2 ring-[#9eb093]",
+              dropPosition === "inside" && hasChildren && !open && "bg-[#f3f7f1]",
+              dropPosition === "before" && "shadow-[inset_0_2px_0_0_#627f58]",
+              dropPosition === "after" && "shadow-[inset_0_-2px_0_0_#627f58]"
+            )}
+            draggable
+            onDragStart={(event) => {
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData(NOTEBOOK_DRAG_MIME, node.id);
+              event.dataTransfer.setData("text/plain", node.id);
+            }}
+            onDragOver={handleDragOver}
+            onDragLeave={() => {
+              setDropPosition(null);
+              clearExpandTimer();
+            }}
+            onDragEnd={clearExpandTimer}
+            onDrop={handleDrop}
+            style={{ paddingLeft: `${8 + depth * 14}px` }}
+          >
+            {hasChildren ? (
+              <button
+                className="flex h-6 w-5 items-center justify-center rounded hover:bg-slate-100/50 transition-colors"
+                type="button"
+                onClick={() => setOpen((value) => !value)}
+                title="展开/折叠"
+                aria-label={open ? `收起 ${node.name}` : `展开 ${node.name}`}
+                aria-expanded={open}
+              >
+                {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </button>
+            ) : (
+              <span className="h-6 w-5 shrink-0" aria-hidden="true" />
+            )}
+            <button
+              data-notebook-tree-button
+              className="flex min-w-0 flex-1 items-center gap-2 text-left"
+              type="button"
+              aria-label={selected ? `当前：${node.name}` : `切换到 ${node.name}`}
+              aria-current={selected ? "page" : undefined}
+              aria-expanded={hasChildren ? open : undefined}
+              onClick={() => onSelect(node.id)}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Home" || event.key === "End") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  focusNotebookTreeButton(
+                    event.currentTarget,
+                    event.key === "Home" ? "first" : event.key === "End" ? "last" : event.key === "ArrowDown" ? "next" : "previous"
+                  );
+                  return;
+                }
+
+                if (event.key === "*" || event.key === "Multiply") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onExpandSiblings(node.parentId);
+                  return;
+                }
+
+                if (event.key === "ArrowRight" && hasChildren && !open) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setOpen(true);
+                  return;
+                }
+
+                if (event.key === "ArrowLeft" && hasChildren && open) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setOpen(false);
+                  return;
+                }
+              }}
+            >
+              <NotebookIcon className={cn("h-4 w-4 shrink-0 transition-colors duration-200", selected || hasSelectedDescendant ? "text-[#627f58]" : "text-slate-500")} />
+              <span className="truncate">{node.name}</span>
+            </button>
+            <button
+              className={cn(
+                "hidden h-6 w-6 items-center justify-center rounded-md group-focus-within:flex group-hover:flex transition-colors duration-150",
+                selected ? "hover:bg-[#e6efe1]" : "hover:bg-slate-100"
+              )}
+              type="button"
+              title="新建子笔记本"
+              aria-label={`在 ${node.name} 下新建子笔记本`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onCreateNotebook(node.id);
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+            <button
+              className={cn(
+                "hidden h-6 w-6 items-center justify-center rounded-md group-focus-within:flex group-hover:flex transition-colors duration-150",
+                selected ? "hover:bg-[#e6efe1]" : "hover:bg-slate-100"
+              )}
+              type="button"
+              title="重命名笔记本"
+              aria-label={`重命名 ${node.name}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onRenameNotebook(node);
+              }}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            {!isInbox ? (
+              <button
+                className="hidden h-6 w-6 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50 group-focus-within:flex group-hover:flex transition-colors duration-150"
+                type="button"
+                title="删除笔记本"
+                aria-label={`删除 ${node.name}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDeleteNotebook(node);
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-48 bg-white border border-slate-200 rounded-md py-1 shadow-md">
+          <ContextMenuItem
+            className="flex h-9 items-center gap-2 px-3 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer outline-none"
+            onClick={() => onCreateNotebook(node.id)}
+          >
+            <Plus className="h-4 w-4" />
+            新建子笔记本
+          </ContextMenuItem>
+          <ContextMenuItem
+            className="flex h-9 items-center gap-2 px-3 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer outline-none"
+            onClick={() => onRenameNotebook(node)}
+          >
+            <Pencil className="h-4 w-4" />
+            重命名
+          </ContextMenuItem>
+          {!isInbox && (
+            <>
+              <ContextMenuSeparator className="my-1 h-px bg-slate-100" />
+              <ContextMenuItem
+                className="flex h-9 items-center gap-2 px-3 text-sm text-rose-700 hover:bg-rose-50 cursor-pointer outline-none"
+                onClick={() => onDeleteNotebook(node)}
+              >
+                <Trash2 className="h-4 w-4" />
+                删除笔记本
+              </ContextMenuItem>
+            </>
+          )}
+        </ContextMenuContent>
+      </ContextMenu>
+
+      {hasChildren && open ? (
+        <div className="mt-1 space-y-1">
+          {node.children.map((child) => (
+            <NotebookTreeItem
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              selectedNotebookId={selectedNotebookId}
+              onSelect={onSelect}
+              onCreateNotebook={onCreateNotebook}
+              onRenameNotebook={onRenameNotebook}
+              onDeleteNotebook={onDeleteNotebook}
+              onMoveNotebook={onMoveNotebook}
+              onMoveMemos={onMoveMemos}
+              onDragScroll={onDragScroll}
+              expandSiblingsRequest={expandSiblingsRequest}
+              onExpandSiblings={onExpandSiblings}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+};
