@@ -155,11 +155,11 @@ const getProfileErrorMessage = (error: unknown) => {
 
   if (error instanceof ApiRequestError) {
     if (error.code === "ai_request_failed") {
-      return "Cloudflare Workers AI 调用失败。请确认部署环境的 Workers AI 可用，或在环境变量 EDGE_EVER_PROFILE_MODEL 中指定一个当前可用的文本生成模型。";
+      return "生成失败了，请稍后再试。";
     }
 
     if (error.code === "ai_not_configured") {
-      return "当前部署还没有配置 Workers AI binding，暂时无法生成人物画像。";
+      return "生成功能暂时不可用。";
     }
 
     if (error.code === "no_profile_sources") {
@@ -248,9 +248,6 @@ const PersonaProfileCard = ({ profile, isLoading, isGenerating, errorMessage, on
       ) : (
         <div className="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center">
           <div className="text-sm font-semibold text-slate-700">还没有人物画像快照</div>
-          <p className="mx-auto mt-2 max-w-md text-xs leading-5 text-slate-500">
-            点击生成后，EdgeEver 会调用 Cloudflare Workers AI 分析现有笔记，并把结果保存在 D1。
-          </p>
         </div>
       )}
     </CardContent>
