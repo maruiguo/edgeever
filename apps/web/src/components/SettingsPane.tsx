@@ -6,7 +6,6 @@ import { EvernoteImportGuideCard } from "./settings/EvernoteImportGuideCard";
 import { McpConfigCard } from "./settings/McpConfigCard";
 import { PreferenceCard } from "./settings/PreferenceCard";
 import { SessionCard } from "./settings/SessionCard";
-import { ShortcutSettingsCard } from "./settings/ShortcutSettingsCard";
 
 interface SettingsPaneProps {
   onClose: () => void;
@@ -59,8 +58,6 @@ export const SettingsPane = ({
         <PreferenceCard
           imageCompressionEnabled={imageCompressionEnabled}
           onImageCompressionChange={onImageCompressionChange}
-        />
-        <ShortcutSettingsCard
           shortcutSettings={shortcutSettings}
           onShortcutSettingsChange={onShortcutSettingsChange}
         />

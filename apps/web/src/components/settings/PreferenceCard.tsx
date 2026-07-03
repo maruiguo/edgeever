@@ -1,13 +1,22 @@
 import { Image } from "lucide-react";
+import type { ShortcutSettings } from "@/lib/app-helpers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { ShortcutSettingsItem } from "./ShortcutSettingsItem";
 
 interface PreferenceCardProps {
   imageCompressionEnabled: boolean;
   onImageCompressionChange: (enabled: boolean) => void;
+  shortcutSettings: ShortcutSettings;
+  onShortcutSettingsChange: (settings: ShortcutSettings) => void;
 }
 
-export const PreferenceCard = ({ imageCompressionEnabled, onImageCompressionChange }: PreferenceCardProps) => (
+export const PreferenceCard = ({
+  imageCompressionEnabled,
+  onImageCompressionChange,
+  shortcutSettings,
+  onShortcutSettingsChange,
+}: PreferenceCardProps) => (
   <Card className="w-full min-w-0 overflow-hidden shadow-none">
     <CardHeader className="p-4">
       <CardTitle className="flex items-center gap-2 text-sm">
@@ -15,7 +24,7 @@ export const PreferenceCard = ({ imageCompressionEnabled, onImageCompressionChan
         偏好设置
       </CardTitle>
     </CardHeader>
-    <CardContent className="p-4 pt-0">
+    <CardContent className="grid gap-3 p-4 pt-0">
       <div className="flex min-h-14 flex-col items-start gap-3 rounded-lg border border-slate-100 bg-slate-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-slate-900">压缩笔记内图片</div>
@@ -29,6 +38,10 @@ export const PreferenceCard = ({ imageCompressionEnabled, onImageCompressionChan
           />
         </div>
       </div>
+      <ShortcutSettingsItem
+        shortcutSettings={shortcutSettings}
+        onShortcutSettingsChange={onShortcutSettingsChange}
+      />
     </CardContent>
   </Card>
 );

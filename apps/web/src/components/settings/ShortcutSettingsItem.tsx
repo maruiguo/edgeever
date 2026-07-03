@@ -9,7 +9,6 @@ import {
   SHORTCUT_ACTION_OPTIONS,
 } from "@/lib/app-helpers";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-interface ShortcutSettingsCardProps {
+interface ShortcutSettingsItemProps {
   shortcutSettings: ShortcutSettings;
   onShortcutSettingsChange: (settings: ShortcutSettings) => void;
 }
@@ -31,7 +30,7 @@ const getConflictAction = (
   settings: ShortcutSettings
 ) => SHORTCUT_ACTION_OPTIONS.find((item) => item.value !== action && shortcutBindingsEqual(settings[item.value], binding));
 
-export const ShortcutSettingsCard = ({ shortcutSettings, onShortcutSettingsChange }: ShortcutSettingsCardProps) => {
+export const ShortcutSettingsItem = ({ shortcutSettings, onShortcutSettingsChange }: ShortcutSettingsItemProps) => {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [recordingAction, setRecordingAction] = useState<ShortcutAction | null>(null);
   const [captureMessage, setCaptureMessage] = useState("");
@@ -100,32 +99,24 @@ export const ShortcutSettingsCard = ({ shortcutSettings, onShortcutSettingsChang
 
   return (
     <>
-      <Card className="w-full min-w-0 overflow-hidden shadow-none">
-        <CardHeader className="p-4">
-          <CardTitle className="flex items-center gap-2 text-sm">
+      <div className="flex min-h-14 flex-col items-start gap-3 rounded-lg border border-slate-100 bg-slate-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
             <Keyboard className="h-4 w-4 text-emerald-700" />
-            快捷键
-          </CardTitle>
-          <CardDescription className="text-xs leading-4">为低频但关键的笔记动作绑定组合键。</CardDescription>
-        </CardHeader>
-        <CardContent className="p-4 pt-0">
-          <div className="flex min-h-14 flex-col items-start gap-3 rounded-lg border border-slate-100 bg-slate-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div className="min-w-0">
-              <div className="text-sm font-semibold text-slate-900">绑定快捷键</div>
-              <div className="mt-0.5 truncate text-xs leading-4 text-slate-500">{shortcutSummary}</div>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 w-full bg-white px-3 text-xs sm:w-auto"
-              type="button"
-              onClick={() => setShortcutsOpen(true)}
-            >
-              管理
-            </Button>
+            绑定快捷键
           </div>
-        </CardContent>
-      </Card>
+          <div className="mt-0.5 truncate text-xs leading-4 text-slate-500">{shortcutSummary}</div>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 w-full bg-white px-3 text-xs sm:w-auto"
+          type="button"
+          onClick={() => setShortcutsOpen(true)}
+        >
+          管理
+        </Button>
+      </div>
 
       <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen}>
         <DialogContent className="max-h-[min(640px,calc(100vh-2rem))] max-w-xl overflow-y-auto">
