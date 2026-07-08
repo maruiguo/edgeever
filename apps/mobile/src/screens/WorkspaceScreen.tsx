@@ -3633,9 +3633,20 @@ const MemoDetailModal = ({
             </View>
             <View style={styles.actionRow}>
               {memo.isDeleted ? (
-                <ActionButton disabled={isRestoring} label={isRestoring ? "恢复中" : "恢复"} onPress={() => onRestore(memo)}>
-                  <RotateCcw color="#0f172a" size={16} />
-                </ActionButton>
+                <>
+                  <ActionButton label="查找" onPress={() => setSearchOpen((open) => !open)}>
+                    <Search color="#0f172a" size={16} />
+                  </ActionButton>
+                  <ActionButton label="历史" onPress={() => onOpenRevisions(memo)}>
+                    <History color="#0f172a" size={16} />
+                  </ActionButton>
+                  <ActionButton label="资源" onPress={onOpenResources}>
+                    <Archive color="#0f172a" size={16} />
+                  </ActionButton>
+                  <ActionButton disabled={isRestoring} label={isRestoring ? "恢复中" : "恢复"} onPress={() => onRestore(memo)}>
+                    <RotateCcw color="#0f172a" size={16} />
+                  </ActionButton>
+                </>
               ) : (
                 <>
                   <ActionButton disabled={isSaving} label={memo.isPinned ? "取消置顶" : "置顶"} onPress={() => onTogglePin(memo)}>
