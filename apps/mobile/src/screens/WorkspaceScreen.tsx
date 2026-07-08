@@ -2446,6 +2446,7 @@ const ApiTokensModal = ({ baseUrl, onClose, visible }: { baseUrl: string; onClos
     onSuccess: async (data) => {
       setCreatedToken(data.token);
       setName("");
+      setSelectedScopes(new Set(availableScopes));
       await queryClient.invalidateQueries({ queryKey: ["mobile", "api-tokens"] });
     },
   });
