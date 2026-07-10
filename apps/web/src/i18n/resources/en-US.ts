@@ -282,6 +282,9 @@ export const enUS = {
     moveToNotebook: "Move to notebook",
     deleteMemo: "Delete note",
     toggleOffFilter: "Cancel {{label}}",
+    manualSync: "Sync notes manually",
+    manualSyncing: "Syncing notes",
+    manualSyncOffline: "Cannot sync notes while offline",
   },
   memoCard: {
     yesterday: "Yesterday",

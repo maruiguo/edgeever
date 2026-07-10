@@ -282,6 +282,9 @@ export const zhCN = {
     moveToNotebook: "移动到笔记本",
     deleteMemo: "删除笔记",
     toggleOffFilter: "取消{{label}}",
+    manualSync: "手动同步笔记",
+    manualSyncing: "正在同步笔记",
+    manualSyncOffline: "离线时无法同步笔记",
   },
   memoCard: {
     yesterday: "昨天",
