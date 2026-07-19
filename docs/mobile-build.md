@@ -2,6 +2,19 @@
 
 EdgeEver Mobile is built with Expo and React Native. Daily Android test packages are built directly on GitHub Actions, without using EAS Build quota.
 
+## App Updates
+
+Installed release builds use EAS Update for compatible JavaScript and asset updates. The app checks once shortly after launch and, at most once every six hours, when it returns to the foreground. Users can also open **My** -> **General settings** -> **App updates** to check manually. A downloaded update is only applied after the user confirms a restart, so an active editing session is not interrupted automatically.
+
+The `production` build and locally generated Play build read from the `production` update channel. Preview EAS builds read from `preview`. Publish and verify an update on `preview` before promoting the same change to production:
+
+```sh
+bunx eas-cli update --channel preview --environment preview --message "Describe the update"
+bunx eas-cli update --channel production --environment production --message "Describe the update"
+```
+
+The update runtime uses the app-version policy. Any native dependency, Expo SDK, native module, or native configuration change requires incrementing `expo.version` and shipping a new store build before publishing code that depends on that native change. EAS Update does not replace Google Play or App Store updates for native binaries.
+
 ## Android Debug APK
 
 The `Build EdgeEver Mobile` workflow runs on GitHub Actions and produces a debug APK artifact.

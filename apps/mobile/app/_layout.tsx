@@ -14,6 +14,7 @@ import { SessionProvider } from "../src/lib/session";
 import { MobileThemeProvider, useMobileTheme } from "../src/lib/mobile-theme";
 import { MobileLocaleProvider } from "../src/lib/mobile-locale";
 import { AppDialogProvider } from "../src/components/AppDialogProvider";
+import { MobileUpdateProvider } from "../src/lib/mobile-update";
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -72,26 +73,28 @@ export default function RootLayout() {
           <ThemedApp>
             <SafeAreaProvider>
               <AppDialogProvider>
-                <PersistQueryClientProvider
-                  client={queryClient}
-                  persistOptions={{
-                    buster: "native-cache-v1",
-                    dehydrateOptions: {
-                      shouldDehydrateQuery: (query) => {
-                        const section = query.queryKey[1];
-                        const isOfflineReadableData = section === "notebooks" || section === "memos" || section === "memo";
+                <MobileUpdateProvider>
+                  <PersistQueryClientProvider
+                    client={queryClient}
+                    persistOptions={{
+                      buster: "native-cache-v1",
+                      dehydrateOptions: {
+                        shouldDehydrateQuery: (query) => {
+                          const section = query.queryKey[1];
+                          const isOfflineReadableData = section === "notebooks" || section === "memos" || section === "memo";
 
-                        return query.state.status === "success" && isOfflineReadableData;
+                          return query.state.status === "success" && isOfflineReadableData;
+                        },
                       },
-                    },
-                    maxAge: MOBILE_CACHE_MAX_AGE,
-                    persister,
-                  }}
-                >
-                  <SessionProvider>
-                    <Stack screenOptions={{ headerShown: false }} />
-                  </SessionProvider>
-                </PersistQueryClientProvider>
+                      maxAge: MOBILE_CACHE_MAX_AGE,
+                      persister,
+                    }}
+                  >
+                    <SessionProvider>
+                      <Stack screenOptions={{ headerShown: false }} />
+                    </SessionProvider>
+                  </PersistQueryClientProvider>
+                </MobileUpdateProvider>
               </AppDialogProvider>
             </SafeAreaProvider>
           </ThemedApp>

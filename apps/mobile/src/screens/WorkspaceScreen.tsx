@@ -119,6 +119,7 @@ import EditorRuntimePrewarm from "../components/EditorRuntimePrewarm";
 import { showEdgeEverKeyboard } from "../../modules/edgeever-keyboard";
 import LocalTiptapEditor, { type LocalTiptapEditorRef } from "../components/LocalTiptapEditor";
 import { resolveMobileThemeStyles, useMobileTheme, type MobileResolvedTheme } from "../lib/mobile-theme";
+import { MobileUpdateCard } from "../components/MobileUpdateCard";
 
 const ALL_NOTES_ID = "all";
 const DEFAULT_MEMO_TITLE = "无标题笔记";
@@ -1840,6 +1841,7 @@ const SettingsView = ({
                 </View>
               </View>
             </View>
+            <MobileUpdateCard />
             <SystemInfoCard embedded />
           </SettingsGroup>
         </View>
