@@ -4416,6 +4416,7 @@ const RichEditorModal = ({
   const editorElement = useMemo(
     () => memo && baseUrl ? (
       <LocalTiptapEditor
+        autoFocus
         baseUrl={baseUrl}
         content={contentJsonRef.current}
         dom={{
@@ -4438,7 +4439,10 @@ const RichEditorModal = ({
           initialFocusTimerRef.current = setTimeout(() => {
             initialFocusTimerRef.current = null;
             editorRef.current?.focusEnd();
-          }, 160);
+            if (Platform.OS === "android") {
+              showEdgeEverKeyboard();
+            }
+          }, 180);
         }}
         ref={editorRef}
         locale={resolvedLocale}
