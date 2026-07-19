@@ -75,6 +75,7 @@ import {
   StyleSheet,
   type StyleProp,
   Switch,
+  Vibration,
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -395,6 +396,10 @@ export const WorkspaceScreen = () => {
       }
       if (activeView !== "notes") {
         setActiveView("notes");
+        if (memoView === "trash") {
+          setMemoView("notebook");
+          setActiveNotebookId(ALL_NOTES_ID);
+        }
         return true;
       }
       if (memoView === "trash") {
@@ -453,6 +458,34 @@ export const WorkspaceScreen = () => {
     setSelectedMemoIds(new Set());
     setSelectionMoveOpen(false);
     setSelectionMoreOpen(false);
+  };
+
+  const showAllNotes = () => {
+    setActiveView("notes");
+    setMemoView("notebook");
+    setActiveNotebookId(ALL_NOTES_ID);
+    setSearchText("");
+    clearSelection();
+  };
+
+  const showTrash = () => {
+    setMemoView("trash");
+    setActiveNotebookId(ALL_NOTES_ID);
+    setSearchText("");
+    clearSelection();
+  };
+
+  const openSettings = () => {
+    setSearchText("");
+    setActiveView("settings");
+  };
+
+  const closeSettings = () => {
+    setActiveView("notes");
+    if (memoView === "trash") {
+      setMemoView("notebook");
+      setActiveNotebookId(ALL_NOTES_ID);
+    }
   };
 
   const toggleVisibleSelection = () => {
@@ -826,6 +859,7 @@ export const WorkspaceScreen = () => {
   };
 
   const selectSingleMemo = (memoId: string) => {
+    Vibration.vibrate(8);
     setSelectionMode(true);
     setSelectedMemoIds(new Set([memoId]));
   };
@@ -985,7 +1019,7 @@ export const WorkspaceScreen = () => {
             setSearchText(value);
             clearSelection();
           }}
-          onSetMemoView={setMemoView}
+          onSetMemoView={(nextMemoView) => nextMemoView === "trash" ? showTrash() : showAllNotes()}
           searchText={searchText}
           searchTotalCount={searchActive
             ? searchQuery.data?.pages[0]?.totalCount ?? searchResults.length
@@ -1001,7 +1035,7 @@ export const WorkspaceScreen = () => {
         <SettingsView
           baseUrl={session?.baseUrl ?? ""}
           currentUser={session?.user ?? null}
-          onClose={() => setActiveView("notes")}
+          onClose={closeSettings}
           localePreference={localePreference}
           onLocalePreferenceChange={handleLocalePreferenceChange}
           imageCompressionEnabled={imageCompressionEnabled}
@@ -1148,7 +1182,11 @@ export const WorkspaceScreen = () => {
         onSortModeChange={setMemoSortMode}
         onToggleTrash={() => {
           setNotesActionsOpen(false);
-          setMemoView(memoView === "trash" ? "notebook" : "trash");
+          if (memoView === "trash") {
+            showAllNotes();
+          } else {
+            showTrash();
+          }
         }}
         selectionMode={selectionMode}
         visible
@@ -1200,10 +1238,7 @@ export const WorkspaceScreen = () => {
           active={activeView === "notes"}
           icon={<Home color={activeView === "notes" ? "#0f172a" : "#64748b"} size={20} />}
           label="首页"
-          onPress={() => {
-            setSearchText("");
-            setActiveView("notes");
-          }}
+          onPress={showAllNotes}
         />
         <Pressable
           accessibilityLabel="新建笔记"
@@ -1218,7 +1253,7 @@ export const WorkspaceScreen = () => {
           active={false}
           icon={<UserRound color="#64748b" size={20} />}
           label="我的"
-          onPress={() => setActiveView("settings")}
+          onPress={openSettings}
         />
         </View>
       ) : null}
@@ -4771,7 +4806,7 @@ const MemoList = ({
         <MemoCard
           memo={item}
           listDensity={listDensity}
-          onLongPress={onMemoLongPress ? () => onMemoLongPress(item) : undefined}
+          onLongPress={!selectionMode && onMemoLongPress ? () => onMemoLongPress(item) : undefined}
           onPress={() => onMemoPress(item.id)}
           selected={selectedMemoIds.has(item.id)}
           selectionMode={selectionMode}
@@ -5188,6 +5223,7 @@ const MemoCard = memo(function MemoCard({
       <Pressable
         accessibilityLabel={memoTitle}
         accessibilityRole="button"
+        delayLongPress={520}
         onLongPress={onLongPress}
         onPress={onPress}
         style={[styles.memoCardContent, listDensity === "compact" && styles.memoCardContentCompact, selectionMode && styles.memoCardContentWithSelection]}
@@ -5258,7 +5294,7 @@ const ActionButton = ({
 );
 
 const BottomNavItem = ({ active = false, icon, label, onPress }: { active?: boolean; icon: ReactNode; label: string; onPress: () => void }) => (
-  <Pressable onPress={onPress} style={styles.bottomNavItem}>
+  <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} onPress={onPress} style={styles.bottomNavItem}>
     {icon}
     <Text style={[styles.bottomNavText, active && styles.bottomNavTextActive]}>{label}</Text>
   </Pressable>
