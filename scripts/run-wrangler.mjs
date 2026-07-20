@@ -89,6 +89,7 @@ const configuredMigrationsDirectory = config.match(/^migrations_dir\s*=\s*"([^"]
   ?? "migrations";
 const migrationsDirectory = resolve(baseConfigDirectory, configuredMigrationsDirectory);
 const generatedMigrationsDirectory = resolve(".wrangler.generated-migrations");
+const generatedMigrationsConfigDirectory = ".wrangler.generated-migrations";
 
 if (migrationCommand) {
   const migrationFiles = existsSync(migrationsDirectory)
@@ -266,7 +267,7 @@ if (changed) {
   config = config.replace(
     /^migrations_dir\s*=\s*"[^"]+"/m,
     `migrations_dir = ${tomlString(
-      (migrationCommand ? generatedMigrationsDirectory : migrationsDirectory).replaceAll("\\", "/"),
+      (migrationCommand ? generatedMigrationsConfigDirectory : migrationsDirectory).replaceAll("\\", "/"),
     )}`,
   );
   writeFileSync(generatedConfigPath, config);

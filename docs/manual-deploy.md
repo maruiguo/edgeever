@@ -15,6 +15,8 @@ If you are comfortable with Cloudflare and the command line, or prefer customize
    cd edgeever
    ```
 
+   Install Node.js 22 or newer and Bun on the deployment machine. Wrangler is provided by the project dependencies and does not need to be installed globally.
+
 3. **Deploy with the automated helper commands**:
    ```sh
    # Copy the configuration template
@@ -69,7 +71,7 @@ Before running `bun run deploy`, copy the D1 `database_id` and R2 bucket name in
 
 `.env.local` is read only by the local EdgeEver scripts. It is not automatically uploaded to Cloudflare as a file, and it must never be uploaded manually or committed to Git. A build started directly from Cloudflare Dashboard does not automatically receive the D1, R2, or password settings in this file. Use `bun run deploy` for the first deployment, then use `bun run deploy:builds:setup` to copy the required settings securely into Workers Builds.
 
-The deployment command now runs `deploy:doctor` first and stops when the D1 ID, R2 bucket, or login password is missing. Remote D1 migrations are confirmed automatically and require no user input. Before invoking Wrangler, the migration script also verifies that local SQL migrations exist, creates an LF-only copy, and uses a cross-platform absolute migration directory. This prevents both successful-looking Windows commands that migrate no tables and remote D1 misparsing multi-line triggers as `incomplete input`. After deployment, `deploy:verify` checks the remote D1 schema and the Worker's authentication Secret; a missing requirement makes deployment exit as failed. The Worker also fails closed: when a production instance has neither a password Secret nor an enabled user, it returns `auth_not_configured` instead of opening an unauthenticated workspace. `/api/health` checks D1 and authentication initialization; the instance is ready only when it returns `200` with `"ok": true`.
+The deployment command now runs `deploy:doctor` first and stops when the D1 ID, R2 bucket, or login password is missing. Remote D1 migrations are confirmed automatically and require no user input. Before invoking Wrangler, the migration script verifies that local SQL migrations exist, creates an LF-only copy, and always runs Wrangler on its official Node.js runtime; database triggers use the single-line form that remote D1 parses correctly. This prevents Windows commands that migrate no tables, Bun exiting Wrangler early, and remote D1 misparsing triggers as `incomplete input`. After deployment, `deploy:verify` checks the remote D1 schema and the Worker's authentication Secret; a missing requirement makes deployment exit as failed. The Worker also fails closed: when a production instance has neither a password Secret nor an enabled user, it returns `auth_not_configured` instead of opening an unauthenticated workspace. `/api/health` checks D1 and authentication initialization; the instance is ready only when it returns `200` with `"ok": true`.
 
 Existing installations do not need to migrate. If you intentionally switch from the hash setting to `EDGE_EVER_AUTH_PASSWORD`, remove the old `EDGE_EVER_AUTH_PASSWORD_HASH` from `.env.local`, Workers Builds, and the Worker's runtime Secrets; otherwise the legacy hash remains authoritative.
 
