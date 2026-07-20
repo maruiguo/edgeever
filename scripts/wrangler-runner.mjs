@@ -20,6 +20,8 @@ export const buildWranglerEnvironment = (args, env = process.env) => ({
   ...(isD1MigrationApplyCommand(args) ? { CI: "true" } : {}),
 });
 
+export const normalizeD1MigrationSql = (sql) => sql.replace(/\r\n?/g, "\n");
+
 export const buildWranglerSpawnOptions = (args, options = {}) => {
   if (!isD1MigrationApplyCommand(args) || options.input !== undefined) {
     return options;

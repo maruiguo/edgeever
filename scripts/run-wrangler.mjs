@@ -1,6 +1,13 @@
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, resolve } from "node:path";
-import { runWranglerSync } from "./wrangler-runner.mjs";
+import { normalizeD1MigrationSql, runWranglerSync } from "./wrangler-runner.mjs";
 
 const PLACEHOLDER_D1_ID = "00000000-0000-0000-0000-000000000000";
 const UUID_PATTERN =
@@ -81,6 +88,7 @@ const migrationCommand =
 const configuredMigrationsDirectory = config.match(/^migrations_dir\s*=\s*"([^"]+)"/m)?.[1]
   ?? "migrations";
 const migrationsDirectory = resolve(baseConfigDirectory, configuredMigrationsDirectory);
+const generatedMigrationsDirectory = resolve(".wrangler.generated-migrations");
 
 if (migrationCommand) {
   const migrationFiles = existsSync(migrationsDirectory)
@@ -92,6 +100,21 @@ if (migrationCommand) {
     );
     process.exit(1);
   }
+
+  // Git for Windows commonly checks text files out with CRLF. Cloudflare's
+  // remote D1 parser currently rejects CRLF inside multi-line CREATE TRIGGER
+  // statements with SQLITE_ERROR 7500, even though local D1 accepts them.
+  // Always give Wrangler a generated LF-only copy without modifying checkout.
+  rmSync(generatedMigrationsDirectory, { force: true, recursive: true });
+  mkdirSync(generatedMigrationsDirectory, { recursive: true });
+  for (const migrationFile of migrationFiles) {
+    const source = readFileSync(resolve(migrationsDirectory, migrationFile), "utf8");
+    writeFileSync(
+      resolve(generatedMigrationsDirectory, migrationFile),
+      normalizeD1MigrationSql(source),
+    );
+  }
+  changed = true;
   console.log(`[ok] local D1 migrations: ${migrationFiles.length} files`);
 }
 
@@ -242,7 +265,9 @@ if (changed) {
   // Git Bash, PowerShell, Linux, and macOS.
   config = config.replace(
     /^migrations_dir\s*=\s*"[^"]+"/m,
-    `migrations_dir = ${tomlString(migrationsDirectory.replaceAll("\\", "/"))}`,
+    `migrations_dir = ${tomlString(
+      (migrationCommand ? generatedMigrationsDirectory : migrationsDirectory).replaceAll("\\", "/"),
+    )}`,
   );
   writeFileSync(generatedConfigPath, config);
 }

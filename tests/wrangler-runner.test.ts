@@ -4,6 +4,7 @@ import {
   buildWranglerEnvironment,
   buildWranglerSpawnOptions,
   isD1MigrationApplyCommand,
+  normalizeD1MigrationSql,
   resolveWranglerCliPath,
   runWranglerSync,
 } from "../scripts/wrangler-runner.mjs";
@@ -41,5 +42,11 @@ describe("cross-platform Wrangler runner", () => {
       input: "y\n",
       stdio: ["pipe", "inherit", "inherit"],
     });
+  });
+
+  test("normalizes Windows migration line endings for remote D1", () => {
+    expect(normalizeD1MigrationSql("CREATE TABLE demo (id TEXT);\r\n\r\nSELECT 1;\r")).toBe(
+      "CREATE TABLE demo (id TEXT);\n\nSELECT 1;\n",
+    );
   });
 });
