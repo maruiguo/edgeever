@@ -734,6 +734,28 @@ textarea {
   }
 }
 
+@media (min-width: 768px) {
+  .ProseMirror .tableWrapper {
+    width: 100%;
+  }
+
+  .ProseMirror table {
+    width: 100%;
+    min-width: 100% !important;
+    table-layout: auto;
+  }
+
+  .ProseMirror table col {
+    width: auto !important;
+  }
+
+  .ProseMirror th,
+  .ProseMirror td {
+    width: auto;
+    min-width: 0;
+  }
+}
+
 .ProseMirror th p,
 .ProseMirror td p,
 .markdown-content th p,
