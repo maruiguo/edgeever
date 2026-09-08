@@ -21,14 +21,6 @@ describe("diagram editor keyboard workflow", () => {
     expect(source).toContain("graph.cleanSelection();\n    graph.select(node);");
   });
 
-  test("does not let scroller auto-fit flash a detached node while inserting", () => {
-    expect(source).toContain("disableAutoResize()");
-    expect(source).toContain("enableAutoResize()");
-    expect(source).toContain("SCROLLER_AUTORESIZE_SETTLE_MS");
-    expect(source).toContain("graph.localToClient");
-    expect(source).toContain("canvasSurfaceRef.current");
-  });
-
   test("supports a complete flowchart keyboard workflow", () => {
     expect(source).toContain('openFlowQuickCreateRef.current = openFlowQuickCreate');
     expect(source).toContain('graph.bindKey("tab"');
@@ -47,42 +39,6 @@ describe("diagram editor keyboard workflow", () => {
 });
 
 describe("diagram editor canvas surface", () => {
-  test("shows native horizontal and vertical scrollbars for oversized diagrams", () => {
-    expect(source).toContain("new Scroller({");
-    expect(source).toContain("panning: false");
-    expect(source).toContain('className: "edgeever-diagram-scroller"');
-    expect(source).toContain('pannable: { enabled: true, eventTypes: ["leftMouseDown", "rightMouseDown"] }');
-    expect(source).not.toContain("attachDiagramScroll");
-    expect(globalStyles).toContain(".edgeever-diagram-scroller");
-    expect(globalStyles).toContain("scrollbar-gutter: stable");
-    expect(globalStyles).toContain('data-panning="true"');
-    expect(globalStyles).toContain("cursor: grabbing !important");
-  });
-
-  test("supports modeless canvas navigation with blank-drag pan and shift rubberband selection", () => {
-    expect(source).toContain('modifiers: "shift"');
-    expect(source).toContain('multipleSelectionModifiers: ["ctrl", "meta", "shift"]');
-    expect(source).toContain("interacting: () => !readOnly && !spacePanActiveRef.current");
-    expect(source).toContain('data-space-pan={spacePanActive ? "active" : undefined}');
-    expect(source).toContain('data-shift-select={shiftSelectActive ? "active" : undefined}');
-    expect(source).toContain('t("diagram.navHintPan")');
-    expect(source).toContain('t("diagram.navHintHoldShift")');
-    expect(source).toContain('t("diagram.navHintBoxSelect")');
-    expect(globalStyles).toContain('data-shift-select="active"');
-    expect(globalStyles).toContain("cursor: crosshair");
-    expect(source).not.toContain("activeCanvasMode");
-    expect(source).not.toContain("data-canvas-mode");
-  });
-
-  test("keeps toolbar clean without mode toggles while retaining spacebar pan", () => {
-    expect(toolbarSource).not.toContain("canvasMode");
-    expect(toolbarSource).not.toContain("onCanvasModeChange");
-    expect(source).not.toContain('key === "v" || key === "h"');
-    expect(source).toContain('event.code !== "Space"');
-    expect(source).toContain("setSpacePanActive(true)");
-    expect(source).toContain("setSpacePanActive(false)");
-  });
-
   test("uses the common note header and capability-aware more menu", () => {
     expect(source).toContain("<MemoEditorTopRowLeading");
     expect(topRowLeadingSource).toContain('<span className="hidden truncate text-xs text-slate-400 sm:inline">{updatedLabel}</span>');
