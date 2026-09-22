@@ -4,7 +4,6 @@ import { ARCHITECTURE_RESOURCE_ICON_ELEMENTS } from "./diagram-architecture-icon
 import {
   ARCHITECTURE_COMPONENT_SHAPES,
   ARCHITECTURE_SURFACES,
-  architectureEdgePorts,
   architectureEdgeVisual,
   architectureIconElements,
   architectureMermaidClassDefs,
@@ -29,12 +28,6 @@ const contrast = (foreground, background) => {
 };
 
 describe("architecture semantic paint", () => {
-  test("routes forward diagonal edges between horizontal ports", () => {
-    const lowerLeft = { x: 194, y: 711, width: 170, height: 64 };
-    const upperRight = { x: 446, y: 658, width: 170, height: 68 };
-    expect(architectureEdgePorts(lowerLeft, upperRight)).toEqual({ source: "right", target: "left" });
-  });
-
   test("keeps every component fill distinct in light and dark", () => {
     for (const appearance of ["light", "dark"]) {
       const fills = ARCHITECTURE_COMPONENT_SHAPES.map((shape) => resolveArchitectureSurface(appearance).nodes[shape].fill);

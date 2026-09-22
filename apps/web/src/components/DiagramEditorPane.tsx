@@ -111,7 +111,6 @@ import {
   ARCHITECTURE_NODE_FONT_WEIGHT,
   ARCHITECTURE_NODE_LINE_HEIGHT,
   ARCHITECTURE_SHAPE_RESOURCE,
-  architectureEdgePorts,
   architectureEdgeVisual,
   architectureIconOffset,
   architectureNodeVisual,
@@ -1344,16 +1343,14 @@ const edgeMetadata = (
   };
 };
 
-const applyOrthogonalEdgePorts = (graph: Graph, kind: DiagramDocument["kind"]) => {
+const applyFlowchartEdgePorts = (graph: Graph) => {
   for (const edge of graph.getEdges()) {
     const source = edge.getSourceNode();
     const target = edge.getTargetNode();
     if (!source || !target) continue;
     const sourceBox = { ...source.getPosition(), ...source.getSize() };
     const targetBox = { ...target.getPosition(), ...target.getSize() };
-    const ports = kind === "architecture"
-      ? architectureEdgePorts(sourceBox, targetBox)
-      : flowchartEdgePorts(sourceBox, targetBox);
+    const ports = flowchartEdgePorts(sourceBox, targetBox);
     edge.setSource({ cell: source.id, port: ports.source });
     edge.setTarget({ cell: target.id, port: ports.target });
     edge.setRouter(flowchartEdgeIsStraight(sourceBox, targetBox) ? { name: "normal" } : FLOWCHART_EDGE_ROUTER);
@@ -1968,7 +1965,7 @@ export const DiagramEditorPane = ({
       }
     }
     graph.addEdges(document.edges.map((edge) => edgeMetadata(edge, document.kind, documentTheme, appearance, documentStructure)));
-    if (usesOrthogonalDiagramEdges(document.kind)) applyOrthogonalEdgePorts(graph, document.kind);
+    if (usesOrthogonalDiagramEdges(document.kind)) applyFlowchartEdgePorts(graph);
     applyGraphPalette(graph, documentTheme, document.kind, appearance, documentStructure);
     graph.on("scale", () => setZoomPercent(Math.round(graph.scale().sx * 100)));
     graph.cleanHistory();
@@ -2160,7 +2157,7 @@ export const DiagramEditorPane = ({
           target: { cell: currentCell.id, ...(currentPort ? { port: currentPort } : {}) },
         });
         graph.stopBatch("connect");
-        if (usesOrthogonalDiagramEdges(document.kind)) applyOrthogonalEdgePorts(graph, document.kind);
+        if (usesOrthogonalDiagramEdges(document.kind)) applyFlowchartEdgePorts(graph);
         return;
       }
       if (!currentPoint || !containerRef.current) {
@@ -2701,7 +2698,7 @@ export const DiagramEditorPane = ({
       target: { cell: id, ...(oppositeFlowPort(pending.sourcePort) ? { port: oppositeFlowPort(pending.sourcePort) } : {}) },
     });
     graph.stopBatch("quick-create");
-    applyOrthogonalEdgePorts(graph, document.kind);
+    applyFlowchartEdgePorts(graph);
     settleScroller();
     graph.cleanSelection();
     graph.select(node);
@@ -2780,7 +2777,7 @@ export const DiagramEditorPane = ({
         node.resize(geometry.width, geometry.height);
       }
     }
-    if (usesOrthogonalDiagramEdges(document.kind)) applyOrthogonalEdgePorts(graph, document.kind);
+    if (usesOrthogonalDiagramEdges(document.kind)) applyFlowchartEdgePorts(graph);
     if (document.kind === "mind-map") applyMindMapHierarchy(graph, themeRef.current, appearanceRef.current, structureRef.current);
     graph.stopBatch("layout");
     ensureDiagramPaperContainsNodes(graph);
